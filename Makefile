@@ -2,11 +2,10 @@ GO=go
 GOCOVER=$(GO) tool cover
 GOTEST=$(GO) test
 
-.PHONY: test cover 
+.PHONY: test cover
 test:
-	$(GOTEST) -v -count=1 ./...
+	$(GOTEST) -v -coverprofile=coverage.out -count=1 ./...
 
 cover:
-	$(GOTEST) -v -coverprofile=coverage.out ./...
-	$(GOCOVER) -func=coverage.out
+	$(GOTEST) -v -coverprofile=coverage.out -count=1 ./...
 	$(GOCOVER) -html=coverage.out
