@@ -1,14 +1,46 @@
-package lreader_test
+package lreader
 
 import (
+	"bufio"
 	"errors"
 	"io"
 	"strings"
 	"testing"
 
-	"github.com/baquiax/lreader"
 	"github.com/baquiax/lreader/storage/inmemory"
 )
+
+func TestLiteralReaderErrors(t *testing.T) {
+	tests := map[string]struct {
+		reader        *Reader
+		expectedError error
+	}{
+		"Should fail When nil Reader is used": {
+			reader:        nil,
+			expectedError: ErrInvalidReader,
+		},
+		"Should fail When empty io.Reader is nil": {
+			reader:        &Reader{},
+			expectedError: ErrNilSource,
+		},
+		"Should fail When OffsetReadWritter is nil": {
+			reader: &Reader{
+				reader: bufio.NewReader(strings.NewReader("")),
+			},
+			expectedError: ErrNilStorage,
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			_, err := test.reader.ReadLine()
+
+			if err != test.expectedError {
+				t.Fatalf("expected `%v` but got `%v`", test.expectedError, err)
+			}
+		})
+	}
+}
 
 func TestNewReaderErrors(t *testing.T) {
 	storage := inmemory.Storage{}
@@ -20,16 +52,16 @@ func TestNewReaderErrors(t *testing.T) {
 
 	tests := map[string]struct {
 		reader        io.Reader
-		storage       lreader.OffsetReadWritter
+		storage       OffsetReadWritter
 		expectedError error
 	}{
 		"Should fail When reader arg is nil": {
 			reader:        nil,
-			expectedError: lreader.ErrNilSource,
+			expectedError: ErrNilSource,
 		},
 		"Should fail When storage arg is nil": {
 			reader:        strings.NewReader(""),
-			expectedError: lreader.ErrNilStorage,
+			expectedError: ErrNilStorage,
 		},
 		"Should fail When the storage fails reading the latest offset": {
 			reader:        strings.NewReader(""),
@@ -45,7 +77,7 @@ func TestNewReaderErrors(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			r, err := lreader.New(test.reader, test.storage)
+			r, err := New(test.reader, test.storage)
 
 			if r != nil {
 				t.Fatal("when error is present the reader should be nil")
@@ -66,7 +98,7 @@ func TestNewReader(t *testing.T) {
 	reader := strings.NewReader("")
 	storage := inmemory.Storage{}
 
-	r, err := lreader.New(reader, &storage)
+	r, err := New(reader, &storage)
 	if err != nil {
 		t.Errorf("expected nil, got %v", err)
 	}
@@ -81,7 +113,7 @@ func TestReadLineErrors(t *testing.T) {
 
 	tests := map[string]struct {
 		reader        io.Reader
-		storage       lreader.OffsetReadWritter
+		storage       OffsetReadWritter
 		expectedError error
 	}{
 		"Should fail When log line is found": {
@@ -105,7 +137,7 @@ func TestReadLineErrors(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			r, err := lreader.New(test.reader, test.storage)
+			r, err := New(test.reader, test.storage)
 			if err != nil {
 				t.Fatalf("expected nil, got %v", err)
 			}
@@ -128,7 +160,7 @@ func TestReadLine(t *testing.T) {
 
 	tests := map[string]struct {
 		reader  io.Reader
-		storage lreader.OffsetReadWritter
+		storage OffsetReadWritter
 	}{
 		"Should read a line When a valid reader is given": {
 			reader:  strings.NewReader("hello\nworld\n\n"),
@@ -146,7 +178,7 @@ func TestReadLine(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			r, err := lreader.New(test.reader, test.storage)
+			r, err := New(test.reader, test.storage)
 			if err != nil {
 				t.Fatalf("expected nil, got %v", err)
 			}

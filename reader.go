@@ -26,12 +26,27 @@ const (
 )
 
 var (
-	ErrNilSource  = errors.New("source is nil")
+	// ErrNilSource is returned when the first argument of the ReadLine
+	// method is invalid
+	ErrNilSource = errors.New("source is nil")
+
+	// ErrNilStorage is returned when the second argument of the ReadLine
+	// method is invalid
 	ErrNilStorage = errors.New("storage is nil")
-	ErrLongLine   = errors.New("line to log to be readed")
+
+	// ErrLongLine is returned when one of the lines of the given source
+	// is too long the be kept in memory. See maxLineBytes
+	ErrLongLine = errors.New("line to log to be readed")
+
+	// ErrInvalidReader is returned if the Reader instace does not contain
+	// the needed dependencies. It could happen if it was not created using
+	// the New method.
+	//
+	// This error aim to reduce the probability to have unexpected panics
+	ErrInvalidReader = errors.New("the Reader instances was not created with the given constructor New")
 )
 
-// OffsetReadWriter defines the behavior of the storage system in charge to store
+// OffsetReadWritter defines the behavior of the storage system in charge to store
 // and read the last read byte on a file.
 type OffsetReadWritter interface {
 	// Read returns the last read byte on a file.
@@ -41,12 +56,15 @@ type OffsetReadWritter interface {
 	Write(value int64) error
 }
 
+// Reader represents an instance of a line reader. Currently it
+// does not export any useful field.
 type Reader struct {
 	storage       OffsetReadWritter
 	reader        *bufio.Reader
 	currentOffset int64
 }
 
+// New abstract the logic to build a valid Reader.
 func New(source io.Reader, storage OffsetReadWritter) (*Reader, error) {
 	if source == nil {
 		return nil, ErrNilSource
@@ -107,8 +125,11 @@ func (r *Reader) readLine() ([]byte, error) {
 //
 // An expeted error is got when the end of file is found (io.EOF). When
 // this happens, the returned bytes MUST be readed
-
 func (r *Reader) ReadLine() ([]byte, error) {
+	if err := r.validateInstance(); err != nil {
+		return []byte{}, err
+	}
+
 	bytes, err := r.readLine()
 
 	if err != nil {
@@ -128,4 +149,17 @@ func (r *Reader) ReadLine() ([]byte, error) {
 	r.currentOffset += int64(len(bytes) + 1)
 
 	return bytes, err
+}
+
+func (r *Reader) validateInstance() error {
+	switch {
+	case r == nil:
+		return ErrInvalidReader
+	case r.reader == nil:
+		return ErrNilSource
+	case r.storage == nil:
+		return ErrNilStorage
+	default:
+		return nil
+	}
 }
