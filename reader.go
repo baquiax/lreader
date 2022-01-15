@@ -17,9 +17,18 @@ import (
 	"io"
 )
 
+const (
+	// maxLineBytes is used to limit the amount of bytes
+	// kept in memory when reading long lines
+	//
+	// Check: bufio.defaultBufSize and bufio.ReadLine (prefix)
+	maxLineBytes = 4096 * 2
+)
+
 var (
 	ErrNilSource  = errors.New("source is nil")
 	ErrNilStorage = errors.New("storage is nil")
+	ErrLongLine   = errors.New("line to log to be readed")
 )
 
 // OffsetReadWriter defines the behavior of the storage system in charge to store
@@ -65,11 +74,48 @@ func New(source io.Reader, storage OffsetReadWritter) (*Reader, error) {
 	}, nil
 }
 
+func (r *Reader) readLine() ([]byte, error) {
+	var bytes []byte
+	var error error
+
+	for {
+		partialBytes, isPrefix, err := r.reader.ReadLine()
+
+		if len(bytes)+len(partialBytes) > maxLineBytes {
+			return bytes, ErrLongLine
+		}
+
+		bytes = append(bytes, partialBytes...)
+
+		if err != nil {
+			error = err
+			break
+		}
+
+		if !isPrefix {
+			break
+		}
+	}
+
+	return bytes, error
+}
+
+// ReadLine returns the bytes of the next line in the given sources
+// that implements the io.Reader interface.
+//
+// This slice of bytes does not include the new line character (\n)
+//
+// An expeted error is got when the end of file is found (io.EOF). When
+// this happens, the returned bytes MUST be readed
+
 func (r *Reader) ReadLine() ([]byte, error) {
-	// TODO: consider is prefix for long lines
-	bytes, _, err := r.reader.ReadLine()
+	bytes, err := r.readLine()
 
 	if err != nil {
+		if err == io.EOF {
+			return bytes, io.EOF
+		}
+
 		return bytes, fmt.Errorf("error reading lines: %v", err)
 	}
 

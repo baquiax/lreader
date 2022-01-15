@@ -84,10 +84,15 @@ func TestReadLineErrors(t *testing.T) {
 		storage       lreader.OffsetReadWritter
 		expectedError error
 	}{
-		"Should fail When EOF is found": {
+		"Should fail When log line is found": {
 			reader:        strings.NewReader(""),
 			storage:       &storage,
-			expectedError: errors.New("error reading lines: EOF"),
+			expectedError: io.EOF,
+		},
+		"Should fail When long line is found": {
+			reader:        strings.NewReader(strings.Repeat("A", 4096*2+1)),
+			storage:       &storage,
+			expectedError: errors.New("error reading lines: line to log to be readed"),
 		},
 		"Should fail When offset is not possible to write": {
 			reader: strings.NewReader("hi"),
@@ -121,18 +126,37 @@ func TestReadLineErrors(t *testing.T) {
 func TestReadLine(t *testing.T) {
 	// TODO: test lines > 4096 bytes
 
-	r, err := lreader.New(strings.NewReader("hello\nworld\n"), &inmemory.Storage{})
-
-	if err != nil {
-		t.Fatalf("expected nil, got %v", err)
+	tests := map[string]struct {
+		reader  io.Reader
+		storage lreader.OffsetReadWritter
+	}{
+		"Should read a line When a valid reader is given": {
+			reader:  strings.NewReader("hello\nworld\n\n"),
+			storage: &inmemory.Storage{},
+		},
+		"Should get an empty string When only a new line is found": {
+			reader:  strings.NewReader("\n"),
+			storage: &inmemory.Storage{},
+		},
+		"Should get a long string When it is uses >= 4096 bytes": {
+			reader:  strings.NewReader(strings.Repeat("a", 4096)),
+			storage: &inmemory.Storage{},
+		},
 	}
 
-	line, err := r.ReadLine()
-	if err != nil {
-		t.Fatalf("expected nil, got %v", err)
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			r, err := lreader.New(test.reader, test.storage)
+			if err != nil {
+				t.Fatalf("expected nil, got %v", err)
+			}
+
+			_, err = r.ReadLine()
+			if err != nil && err != io.EOF {
+				t.Fatalf("expected nil, got %v", err)
+			}
+		})
+
 	}
 
-	if string(line) != "hello" {
-		t.Fatalf("expected `hello`, got `%v`", line)
-	}
 }
