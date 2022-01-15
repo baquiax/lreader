@@ -1,3 +1,3 @@
-module baquiax.dev/lreader
+module github.com/baquiax/lreader
 
 go 1.17

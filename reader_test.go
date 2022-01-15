@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"baquiax.dev/lreader"
-	"baquiax.dev/lreader/storage/inmemory"
+	"github.com/baquiax/lreader"
+	"github.com/baquiax/lreader/storage/inmemory"
 )
 
 func TestNewReaderErrors(t *testing.T) {
