@@ -18,10 +18,5 @@ func New(path string) (*os.File, error) {
 		return nil, fmt.Errorf("file %s does not exist", path)
 	}
 
-	fd, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-
-	return fd, nil
+	return os.Open(path)
 }
